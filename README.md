@@ -1,4 +1,4 @@
-gevent-event-redis
-==================
+devent
+======
 
 Distributed event handling under gevent using redis
