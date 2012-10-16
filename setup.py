@@ -5,7 +5,7 @@ from distutils.core import setup
 
 setup(
     name='devent',
-    version='0.0.1',
+    version='0.0.2',
     author='Johan Mjones',
     author_email='johan.mjones@gmail.com',
     packages=['devent'],

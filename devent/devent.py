@@ -1,5 +1,6 @@
 #coding: UTF-8
 from collections import defaultdict
+import fnmatch
 import gevent, gevent.monkey, gevent.event
 import sys
 
@@ -39,9 +40,29 @@ class EventNexus(object):
         self.source_id = source_id
 
         self.subscriptions = defaultdict(list)
+        self._match_cache = defaultdict(set)
 
         self._ready_event = gevent.event.Event()
         gevent.spawn(self._event_handler)
+
+    def _get_matching_subscriptions(self, topic):
+        logger.debug("_get_matching_subscriptions(): Finding subscriptions for topic %r", topic)
+
+        if topic in self._match_cache:
+            logger.debug("_get_matching_subscriptions(): found %r in cache", topic)
+            matching_functions = self._match_cache[topic]
+        else:
+            matching_functions = set()
+            for topic_filter, functions in self.subscriptions.iteritems():
+                logger.debug("_get_matching_subscriptions(): %r:%r", topic_filter, functions)
+                if fnmatch.fnmatch(topic, topic_filter):
+                    matching_functions |= set(functions)
+            self._match_cache[topic] = matching_functions
+
+            logger.debug("_get_matching_subscriptions(): found %r", matching_functions)
+        return matching_functions
+
+
 
     def _event_handler(self):
         while True:
@@ -54,7 +75,7 @@ class EventNexus(object):
                 if msg['type'] == 'subscribe':
                     # all set up, ready to start publishing
                     self._ready_event.set()
-                    del self._ready_event
+                    self._ready_event = None
                 elif msg['type'] == 'message':
                     data = msg['data']
                     try:
@@ -65,7 +86,7 @@ class EventNexus(object):
 
                     logging.debug("Event %s", event)
 
-                    for fn in self.subscriptions[event.topic]:
+                    for fn in self._get_matching_subscriptions(event.topic):
                         try:
                             fn(event)
                         except:
@@ -84,10 +105,11 @@ class EventNexus(object):
         redis_client.publish(self.redis_channel, e_data)
         logger.debug("Published %s", e)
 
-    def subscribes(self, topic):
+    def subscribes(self, topic_filter):
+        self._match_cache.clear()
         def decorator(f):
-            logger.debug("Adding subscriper to topic %s: %r", topic, f)
-            self.subscriptions[topic].append(f)
+            logger.debug("Adding subscriper to topic %s: %r", topic_filter, f)
+            self.subscriptions[topic_filter].append(f)
             return f
 
         return decorator
@@ -96,15 +118,20 @@ class EventNexus(object):
 if __name__ == "__main__":
     #logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
     nexus_out = EventNexus()
-    @nexus_out.subscribes("test-topic")
+    @nexus_out.subscribes("test.topic")
     def test_method(event):
         print "test_method: Got event %s" % event
 
-    @nexus_out.subscribes("test-topic")
+    @nexus_out.subscribes("test.*")
     def test_method2(event):
         print "test_method2: Got event %s" % event
 
+    @nexus_out.subscribes("test.topi?")
+    def test_method3(event):
+        print "test_method3: Got event %s" % event
+
     nexus_in = EventNexus()
-    nexus_in.publish("test-topic", "hello from the other side!")
+    nexus_in.publish("test.topic", "hello from the other side!")
+    nexus_in.publish("test.topic", "another hello from the other side!")
 
     gevent.sleep(10)
