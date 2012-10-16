@@ -69,7 +69,7 @@ class EventNexus(object):
             redis_client = redis.StrictRedis(connection_pool=self.redis_pool)
             redis_pubsub = redis_client.pubsub()
             redis_pubsub.subscribe(self.redis_channel)
-            logger.info("Event handler started (subscribed to %s", self.redis_channel)
+            logger.info("Event handler started (subscribed to %s)", self.redis_channel)
             for msg in redis_pubsub.listen():
                 logger.debug("Message: %r" % msg)
                 if msg['type'] == 'subscribe':
@@ -108,7 +108,7 @@ class EventNexus(object):
     def subscribes(self, topic_filter):
         self._match_cache.clear()
         def decorator(f):
-            logger.debug("Adding subscriper to topic %s: %r", topic_filter, f)
+            logger.debug("Adding subscriber to topic %s: %r", topic_filter, f)
             self.subscriptions[topic_filter].append(f)
             return f
 
