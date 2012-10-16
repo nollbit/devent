@@ -88,7 +88,7 @@ class EventNexus(object):
 
                     for fn in self._get_matching_subscriptions(event.topic):
                         try:
-                            fn(event)
+                            gevent.spawn(fn, event)
                         except:
                             logging.exception("Exception in subscriber for event %s", event)
 
